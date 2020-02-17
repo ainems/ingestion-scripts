@@ -1,0 +1,27 @@
+set autocommit=on;
+
+truncate table asandfort.stg_cybersource_transactions_2;
+COPY asandfort.stg_cybersource_transactions_2 from 's3://hmklabs-bi/asandfort/Cybersource/Backlog/BI_TR_1620.csv' 
+CREDENTIALS '123456'
+IGNOREHEADER 1
+REMOVEQUOTES
+MAXERROR 20
+ACCEPTINVCHARS
+delimiter ',';
+
+
+insert into asandfort.cybersource_transactions  -- should have the proper field format
+SELECT
+requestid,
+cast(left(requestdate, 10) + ' ' + trim(trailing 'Z' from (right(requestdate,9))) as timestamp) as requestdate, --fix Cybersource timestamp
+merchantid,
+cast(left(localizedrequestdate, 10) + ' ' + right(localizedrequestdate,14) as timestamp) as localizedrequestdate, --fix Cybersource timestamp
+applicationname, rcode, reasoncode, rflag, rmsg, billto_address1, billto_address2, billto_city, billto_country, billto_email, billto_firstname, billto_ipaddress, billto_lastname, billto_middlename, billto_namesuffix, billto_phone, billto_state, billto_title, billto_username, billto_zip,
+cast(case when quantity='' then '0' else quantity end as int) as quantity, --fix nulls, convert to int
+merchantdefineddatafield1, merchantdefineddatafield5, merchantdefineddatafield3, merchantdefineddatafield2, merchantdefineddatafield4,
+cast(case when amount='' then '0' else amount end as numeric(10,2)) as amount, --fix nulls, convert to numeric
+merchantreferencenumber,
+  getdate() as etl_date
+from asandfort.stg_cybersource_transactions_2 s
+where
+requestdate like '2019-12-%'  
